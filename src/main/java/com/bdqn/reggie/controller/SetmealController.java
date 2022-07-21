@@ -14,9 +14,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +37,9 @@ public class SetmealController {
     @Autowired
     private SetmealDishService setmealDishService;
 
+    @Autowired
+    private RedisTemplate redisTemplate;
+
     /**
      * 新增套餐
      * @param setmealDto
@@ -44,7 +49,8 @@ public class SetmealController {
     public R<String> sava(@RequestBody SetmealDto setmealDto){;
 
         setmealService.savaWithDish(setmealDto);
-
+        String key = "setmeal_" + setmealDto.getCategoryId() + "_" + setmealDto.getStatus();
+        redisTemplate.delete(key);
         return R.success("添加成功");
     }
 
@@ -114,12 +120,23 @@ public class SetmealController {
      */
     @GetMapping("/list")
     public R<List<Setmeal>> list(Setmeal setmeal){
+        String key = "setmeal_" + setmeal.getCategoryId() + "_" + setmeal.getStatus();
+        //先从redis中查询数据
+        List<Setmeal> list = null;
+        list = (List<Setmeal>) redisTemplate.opsForValue().get(key);
+
+        //如果数据存在就直接放回
+        if (list != null){
+            return R.success(list);
+        }
+
         LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(setmeal.getCategoryId() != null,Setmeal::getCategoryId,setmeal.getCategoryId());
         queryWrapper.eq(setmeal.getStatus() != null,Setmeal::getStatus,setmeal.getStatus());
         queryWrapper.orderByDesc(Setmeal::getUpdateTime);
 
-        List<Setmeal> list = setmealService.list(queryWrapper);
+        list = setmealService.list(queryWrapper);
+        redisTemplate.opsForValue().set(key,list,60, TimeUnit.MINUTES);
 
         return R.success(list);
     }
