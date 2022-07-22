@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -46,6 +48,7 @@ public class SetmealController {
      * @return
      */
     @PostMapping
+    @CacheEvict(value = "setmeal",allEntries = true)
     public R<String> sava(@RequestBody SetmealDto setmealDto){;
 
         setmealService.savaWithDish(setmealDto);
@@ -105,6 +108,7 @@ public class SetmealController {
      * @return
      */
     @DeleteMapping
+    @CacheEvict(value = "setmeal",allEntries = true)
     public R<String> delete(@RequestParam List<Long> ids){
         log.info("ids:{}",ids);
 
@@ -119,6 +123,7 @@ public class SetmealController {
      * @return
      */
     @GetMapping("/list")
+    @Cacheable(value = "setmeal" , key = "#setmeal.categoryId +'_' + #setmeal.status")
     public R<List<Setmeal>> list(Setmeal setmeal){
         String key = "setmeal_" + setmeal.getCategoryId() + "_" + setmeal.getStatus();
         //先从redis中查询数据
